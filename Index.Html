@@ -1,0 +1,405 @@
+<!DOCTYPE html>
+<html lang="en" class="h-full">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>ELIZA - Rogerian Psychotherapist (1966 Simulation)</title>
+    <!-- Tailwind CSS CDN -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Google Fonts -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Fira+Code:wght@400;500;600;700&family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <!-- FontAwesome Icons -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    
+    <script>
+        tailwind.config = {
+            darkMode: 'class',
+            theme: {
+                extend: {
+                    fontFamily: {
+                        sans: ['Inter', 'sans-serif'],
+                        mono: ['Fira Code', 'monospace'],
+                    },
+                    colors: {
+                        crt: {
+                            bg: '#051308',
+                            screen: '#0b1d0e',
+                            green: '#33ff57',
+                            dimGreen: '#1b8a30',
+                            border: '#165022',
+                            glow: 'rgba(51, 255, 87, 0.2)'
+                        }
+                    }
+                }
+            }
+        }
+    </script>
+
+    <style>
+        /* Retro CRT Terminal Effect Styles */
+        .crt-mode {
+            background-color: #051308;
+            color: #33ff57;
+            font-family: 'Fira Code', monospace;
+        }
+        
+        .crt-scanline {
+            background: linear-gradient(
+                rgba(18, 16, 16, 0) 50%, 
+                rgba(0, 0, 0, 0.25) 50%
+            );
+            background-size: 100% 4px;
+            pointer-events: none;
+        }
+
+        .crt-glow {
+            text-shadow: 0 0 5px rgba(51, 255, 87, 0.6);
+        }
+
+        /* Custom Scrollbars */
+        ::-webkit-scrollbar {
+            width: 6px;
+            height: 6px;
+        }
+        ::-webkit-scrollbar-track {
+            background: rgba(0, 0, 0, 0.05);
+        }
+        .dark ::-webkit-scrollbar-track, .crt-mode ::-webkit-scrollbar-track {
+            background: rgba(0, 0, 0, 0.2);
+        }
+        ::-webkit-scrollbar-thumb {
+            background: rgba(156, 163, 175, 0.5);
+            border-radius: 4px;
+        }
+        ::-webkit-scrollbar-thumb:hover {
+            background: rgba(107, 114, 128, 0.8);
+        }
+
+        /* Typing cursor animation */
+        @keyframes blink {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0; }
+        }
+        .cursor-blink {
+            animation: blink 1s infinite;
+        }
+
+        /* Message Fade-In */
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(6px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+        .animate-fade-in {
+            animation: fadeIn 0.25s ease-out forwards;
+        }
+    </style>
+</head>
+<body class="h-full bg-slate-50 text-slate-800 antialiased font-sans transition-colors duration-300 flex flex-col" id="appBody">
+
+    <!-- Header Navigation -->
+    <header class="bg-white border-b border-slate-200 px-4 py-3 shadow-sm transition-colors duration-300 header-bar">
+        <div class="max-w-7xl mx-auto flex flex-wrap items-center justify-between gap-3">
+            <div class="flex items-center gap-3">
+                <div class="w-10 h-10 rounded-xl bg-teal-600 text-white flex items-center justify-center font-bold text-lg shadow-md shadow-teal-600/20 logo-badge">
+                    E
+                </div>
+                <div>
+                    <div class="flex items-center gap-2">
+                        <h1 class="font-bold text-slate-900 text-lg leading-snug app-title">ELIZA</h1>
+                        <span class="text-xs font-semibold px-2 py-0.5 rounded-full bg-teal-100 text-teal-800 border border-teal-200 version-badge">v1966.1</span>
+                    </div>
+                    <p class="text-xs text-slate-500 app-subtitle">Natural Language Processing Computer Program (Joseph Weizenbaum)</p>
+                </div>
+            </div>
+
+            <!-- Header Controls -->
+            <div class="flex items-center gap-2 flex-wrap">
+                <!-- Theme Mode Selector -->
+                <button id="themeToggleBtn" onclick="toggleTheme()" class="px-3 py-1.5 rounded-lg border border-slate-200 bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-medium flex items-center gap-1.5 transition-all">
+                    <i class="fa-solid fa-desktop"></i>
+                    <span id="themeLabel">CRT Theme</span>
+                </button>
+
+                <!-- Audio Toggle -->
+                <button id="audioToggleBtn" onclick="toggleAudio()" class="px-3 py-1.5 rounded-lg border border-slate-200 bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-medium flex items-center gap-1.5 transition-all">
+                    <i id="audioIcon" class="fa-solid fa-volume-xmark"></i>
+                    <span>Speech</span>
+                </button>
+
+                <!-- Debug Inspector Toggle -->
+                <button id="debugToggleBtn" onclick="toggleDebugPanel()" class="px-3 py-1.5 rounded-lg border border-slate-200 bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-medium flex items-center gap-1.5 transition-all">
+                    <i class="fa-solid fa-code"></i>
+                    <span>Inspector</span>
+                </button>
+
+                <!-- Export Chat -->
+                <button onclick="exportTranscript()" class="px-3 py-1.5 rounded-lg border border-slate-200 bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-medium flex items-center gap-1.5 transition-all">
+                    <i class="fa-solid fa-download"></i>
+                    <span class="hidden sm:inline">Export</span>
+                </button>
+
+                <!-- Reset Chat -->
+                <button onclick="resetConversation()" class="px-3 py-1.5 rounded-lg border border-red-200 bg-red-50 hover:bg-red-100 text-red-600 text-xs font-medium flex items-center gap-1.5 transition-all">
+                    <i class="fa-solid fa-rotate-left"></i>
+                    <span class="hidden sm:inline">Reset</span>
+                </button>
+            </div>
+        </div>
+    </header>
+
+    <!-- Main Content Container -->
+    <main class="flex-1 max-w-7xl w-full mx-auto p-3 sm:p-4 md:p-6 flex flex-col md:flex-row gap-4 overflow-hidden relative">
+        <!-- CRT Overlay Scanlines -->
+        <div id="crtOverlay" class="absolute inset-0 crt-scanline z-20 pointer-events-none hidden"></div>
+
+        <!-- Chat Main Area -->
+        <div class="flex-1 flex flex-col bg-white rounded-2xl shadow-sm border border-slate-200 overflow-hidden chat-container transition-colors duration-300">
+            
+            <!-- Chat Window Header Bar -->
+            <div class="px-4 py-2.5 bg-slate-50 border-b border-slate-200 flex items-center justify-between text-xs text-slate-500 chat-sub-header">
+                <div class="flex items-center gap-2">
+                    <span class="w-2.5 h-2.5 rounded-full bg-emerald-500 inline-block animate-pulse"></span>
+                    <span class="font-medium text-slate-700 session-status">Session Active &bull; Rogerian Non-Directive Therapy</span>
+                </div>
+                <div id="messageCount" class="font-mono">1 Message</div>
+            </div>
+
+            <!-- Messages Log Area -->
+            <div id="chatHistory" class="flex-1 p-4 sm:p-6 overflow-y-auto space-y-4">
+                <!-- Messages populated via JavaScript -->
+            </div>
+
+            <!-- Quick Suggestions Pills -->
+            <div id="quickPrompts" class="px-4 py-2 bg-slate-50/80 border-t border-slate-100 flex items-center gap-2 overflow-x-auto text-xs whitespace-nowrap scrollbar-none quick-prompts-bar">
+                <span class="text-slate-400 font-medium text-[11px] uppercase tracking-wider">Try:</span>
+                <button onclick="usePrompt('My mother always told me I cannot succeed.')" class="px-2.5 py-1 rounded-full bg-white border border-slate-200 text-slate-600 hover:bg-slate-100 transition-colors">"My mother always told me..."</button>
+                <button onclick="usePrompt('I am feeling very sad and anxious today.')" class="px-2.5 py-1 rounded-full bg-white border border-slate-200 text-slate-600 hover:bg-slate-100 transition-colors">"I am feeling very sad..."</button>
+                <button onclick="usePrompt('I remember dreaming about my childhood last night.')" class="px-2.5 py-1 rounded-full bg-white border border-slate-200 text-slate-600 hover:bg-slate-100 transition-colors">"I remember dreaming..."</button>
+                <button onclick="usePrompt('I think computers are taking over my life.')" class="px-2.5 py-1 rounded-full bg-white border border-slate-200 text-slate-600 hover:bg-slate-100 transition-colors">"I think computers..."</button>
+            </div>
+
+            <!-- Message Input Bar -->
+            <div class="p-3 sm:p-4 bg-white border-t border-slate-200 input-container">
+                <form id="chatForm" onsubmit="handleUserSubmit(event)" class="flex items-end gap-2">
+                    <div class="flex-1 relative">
+                        <textarea 
+                            id="userInput" 
+                            rows="1" 
+                            placeholder="Type what is on your mind..." 
+                            class="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-teal-500 focus:bg-white resize-none max-h-32 min-h-[46px] text-sm text-slate-800 transition-all font-sans input-field"
+                            onkeydown="handleKeyDown(event)"
+                        ></textarea>
+                    </div>
+
+                    <!-- Voice Input Button (Speech Recognition if supported) -->
+                    <button 
+                        type="button" 
+                        id="micBtn"
+                        onclick="toggleSpeechRecognition()" 
+                        title="Voice Input" 
+                        class="p-3 bg-slate-100 hover:bg-slate-200 text-slate-600 rounded-xl text-sm font-medium transition-colors border border-slate-200 flex items-center justify-center min-w-[46px] min-h-[46px]"
+                    >
+                        <i class="fa-solid fa-microphone"></i>
+                    </button>
+
+                    <!-- Send Button -->
+                    <button 
+                        type="submit" 
+                        id="sendBtn" 
+                        class="px-5 py-3 bg-teal-600 hover:bg-teal-700 text-white rounded-xl text-sm font-medium transition-colors shadow-sm flex items-center justify-center gap-2 min-h-[46px] send-btn"
+                    >
+                        <span>Send</span>
+                        <i class="fa-solid fa-paper-plane text-xs"></i>
+                    </button>
+                </form>
+            </div>
+        </div>
+
+        <!-- Logic Engine Debug Inspector Sidebar -->
+        <aside id="debugPanel" class="w-full md:w-80 bg-white rounded-2xl shadow-sm border border-slate-200 p-4 flex flex-col gap-3 overflow-hidden transition-all duration-300 hidden md:flex sidebar-inspector">
+            <div class="flex items-center justify-between pb-2 border-b border-slate-100">
+                <div class="flex items-center gap-2 text-slate-800 font-semibold text-sm">
+                    <i class="fa-solid fa-microchip text-teal-600"></i>
+                    <span>Pattern Engine Inspector</span>
+                </div>
+                <span class="text-[10px] font-mono px-1.5 py-0.5 bg-slate-100 text-slate-600 rounded">LIVE</span>
+            </div>
+
+            <p class="text-xs text-slate-500 leading-relaxed">
+                Deconstruction of input phrase into keywords, regex transformations, and Rogerian template substitutions.
+            </p>
+
+            <div class="space-y-3 flex-1 overflow-y-auto text-xs font-mono">
+                <!-- Raw Input -->
+                <div class="bg-slate-50 p-2.5 rounded-lg border border-slate-100">
+                    <div class="text-[10px] uppercase font-bold text-slate-400 mb-1">1. User Raw Text</div>
+                    <div id="debugRawText" class="text-slate-700 break-words italic">"No input yet"</div>
+                </div>
+
+                <!-- Keywords Detected -->
+                <div class="bg-slate-50 p-2.5 rounded-lg border border-slate-100">
+                    <div class="text-[10px] uppercase font-bold text-slate-400 mb-1">2. Matched Keyword Rule</div>
+                    <div id="debugKeyword" class="text-teal-700 font-semibold">None</div>
+                </div>
+
+                <!-- Extracted Fragment -->
+                <div class="bg-slate-50 p-2.5 rounded-lg border border-slate-100">
+                    <div class="text-[10px] uppercase font-bold text-slate-400 mb-1">3. Captured Segment ($1)</div>
+                    <div id="debugCaptured" class="text-slate-600 break-words">None</div>
+                </div>
+
+                <!-- Pronoun Transformations -->
+                <div class="bg-slate-50 p-2.5 rounded-lg border border-slate-100">
+                    <div class="text-[10px] uppercase font-bold text-slate-400 mb-1">4. Pronoun Reflection Map</div>
+                    <div id="debugReflection" class="text-indigo-700 break-words">None</div>
+                </div>
+
+                <!-- Template Strategy -->
+                <div class="bg-slate-50 p-2.5 rounded-lg border border-slate-100">
+                    <div class="text-[10px] uppercase font-bold text-slate-400 mb-1">5. Selected Template</div>
+                    <div id="debugTemplate" class="text-slate-700 break-words">None</div>
+                </div>
+            </div>
+
+            <!-- Rogerian Strategy Note -->
+            <div class="p-2.5 bg-amber-50 rounded-lg border border-amber-200 text-[11px] text-amber-800 leading-normal">
+                <i class="fa-solid fa-lightbulb text-amber-600 mr-1"></i>
+                <strong>Rogerian Therapy:</strong> Re-phrases statements into open questions without directing or diagnosing the client.
+            </div>
+        </aside>
+    </main>
+
+    <script>
+        /* ==========================================================================
+           ELIZA RULE SET & DICTIONARY MATRIX
+           ========================================================================== */
+
+        // Pronoun reflection mapping dictionary
+        const PRONOUN_MAP = {
+            "am": "are",
+            "are": "am",
+            "i": "you",
+            "me": "you",
+            "my": "your",
+            "myself": "yourself",
+            "you": "I",
+            "your": "my",
+            "yours": "mine",
+            "yourself": "myself",
+            "i'm": "you are",
+            "you're": "I am",
+            "i've": "you have",
+            "you've": "I have",
+            "i'll": "you will",
+            "you'll": "I will",
+            "mine": "yours",
+            "we": "you",
+            "us": "you",
+            "our": "your",
+            "ours": "yours",
+            "was": "were",
+            "were": "was"
+        };
+
+        // Keyword rules matrix ordered by priority weight
+        const ELIZA_RULES = [
+            {
+                pattern: /.*(?:mother|father|sister|brother|mom|dad|family|parent|parents|son|daughter|wife|husband).*/i,
+                keyword: "family",
+                templates: [
+                    "Tell me more about your family.",
+                    "How do you feel about your {ref}?",
+                    "Does your family often come up in your thoughts?",
+                    "What role does your family play in how you feel?",
+                    "How does that relate to your family?"
+                ]
+            },
+            {
+                pattern: /.*(?:can't|cannot|can not) (.*)/i,
+                keyword: "can't",
+                templates: [
+                    "Why do you think you can't {ref}?",
+                    "What would happen if you could {ref}?",
+                    "Have you ever tried to {ref}?",
+                    "What is stopping you from being able to {ref}?"
+                ]
+            },
+            {
+                pattern: /.*(?:i am|i'm) (.*)/i,
+                keyword: "I am",
+                templates: [
+                    "Did you come to me because you are {ref}?",
+                    "How long have you been {ref}?",
+                    "How do you feel about being {ref}?",
+                    "Do you enjoy being {ref}?",
+                    "Why do you tell me you are {ref}?"
+                ]
+            },
+            {
+                pattern: /.*(?:i feel|feeling) (.*)/i,
+                keyword: "feel",
+                templates: [
+                    "Tell me more about feeling {ref}.",
+                    "Do you often feel {ref}?",
+                    "When you feel {ref}, what do you usually do?",
+                    "Does feeling {ref} remind you of anything else?"
+                ]
+            },
+            {
+                pattern: /.*(?:sad|depressed|unhappy|miserable|lonely|anxious|upset|angry|afraid|scared).*/i,
+                keyword: "emotional state",
+                templates: [
+                    "I am sorry to hear that you are experiencing this. Can you tell me what made you feel this way?",
+                    "Do you often feel this way when talking about your life?",
+                    "What usually helps when you feel like this?",
+                    "How does that emotion impact your day-to-day life?"
+                ]
+            },
+            {
+                pattern: /.*(?:happy|glad|excited|joyful|cheerful|good|great).*/i,
+                keyword: "positive emotion",
+                templates: [
+                    "What makes you feel that way right now?",
+                    "It sounds like that brings you a sense of satisfaction.",
+                    "Does this positive feeling happen often?",
+                    "Tell me more about what leads to these good feelings."
+                ]
+            },
+            {
+                pattern: /.*(?:always|never|everyone|nobody|everybody|no one).*/i,
+                keyword: "absolutes",
+                templates: [
+                    "Can you think of a specific instance?",
+                    "Really, always?",
+                    "Are you sure nobody or everyone fits that description?",
+                    "What makes you use such strong terms?"
+                ]
+            },
+            {
+                pattern: /.*(?:remember|remembered|recalled|memory|memories).*/i,
+                keyword: "remember",
+                templates: [
+                    "Does thinking of that bring back strong feelings?",
+                    "Why do you think you remembered {ref} right now?",
+                    "What else does that memory bring to mind?",
+                    "How does recalling that make you feel?"
+                ]
+            },
+            {
+                pattern: /.*(?:dream|dreamt|dreams|nightmare|nightmares).*/i,
+                keyword: "dream",
+                templates: [
+                    "What does that dream suggest to you?",
+                    "Do you dream often?",
+                    "How did you feel when you woke up from that dream?",
+                    "Are dreams significant in your life?"
+                ]
+            },
+            {
+                pattern: /.*(?:computer|computers|machine|machines|ai|robot|bot|algorithm).*/i,
+                keyword: "computer",
+                templates: [
+                    "Do computers worry you?",
+                    "Why do y
